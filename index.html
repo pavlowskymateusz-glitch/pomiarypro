@@ -35,6 +35,18 @@
 body { font-family: 'DM Sans', sans-serif; background: var(--bg); height: 100vh; overflow: hidden; touch-action: none; user-select: none; }
 #app { display: flex; flex-direction: column; height: 100vh; }
 
+
+/* ── EKRAN STARTOWY ── */
+#start-screen { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; }
+.start-box { background:var(--panel); border-radius:16px; border:1px solid var(--border); padding:40px 32px; width:360px; max-width:90vw; text-align:center; }
+.start-logo { font-size:28px; font-weight:700; color:var(--ink); letter-spacing:-.5px; margin-bottom:8px; }
+.start-logo span { color:var(--accent); }
+.start-sub { font-size:13px; color:var(--ink3); margin-bottom:28px; }
+.start-input { width:100%; border:1.5px solid var(--border); border-radius:var(--r); padding:14px 16px; font-family:'DM Sans',sans-serif; font-size:16px; font-weight:500; color:var(--ink); background:var(--bg); outline:none; margin-bottom:16px; transition:border-color 120ms; }
+.start-input:focus { border-color:var(--accent); background:#fff; }
+.start-btn { width:100%; height:52px; background:var(--accent); color:#fff; border:none; border-radius:var(--r); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:700; cursor:pointer; touch-action:manipulation; }
+.start-btn:active { opacity:.85; }
+
 /* ── TOPBAR ── */
 .topbar { display:flex; align-items:center; gap:0; background:var(--panel); border-bottom:1px solid var(--border); height:52px; padding:0 14px; flex-shrink:0; z-index:10; overflow-x:auto; }
 .logo { font-size:15px; font-weight:700; color:var(--ink); letter-spacing:-.3px; margin-right:16px; white-space:nowrap; flex-shrink:0; }
@@ -107,6 +119,17 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); height: 100vh;
 <div id="app">
 
 <!-- TOPBAR -->
+
+<!-- EKRAN STARTOWY -->
+<div id="start-screen">
+  <div class="start-box">
+    <div class="start-logo">Pomiary<span>Pro</span></div>
+    <div class="start-sub">Aplikacja dla monterów</div>
+    <input class="start-input" id="start-input" type="text" placeholder="Nazwa klienta / obiektu" autocomplete="off" autocorrect="off">
+    <button class="start-btn" onclick="startSession()">Rozpocznij pomiar</button>
+  </div>
+</div>
+
 <div class="topbar">
   <div class="logo">Pomiary<span class="logo-dot">Pro</span></div>
 
@@ -245,19 +268,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // Init canvas
   Canvas.init(document.getElementById('c'), onShapeSelected);
 
-  // Przywróć sesję lub utwórz nową
+  // Przywróć sesję lub pokaż ekran startowy
   const restored = Session.restore();
   if (restored) {
     document.getElementById('sess-badge').textContent = restored.clientName;
+    document.getElementById('start-screen').style.display = 'none';
     startPolling(restored.sessionId);
   } else {
-    const name = prompt('Podaj nazwę klienta / obiektu:') || 'Nowa sesja';
-    const sess  = Session.create(name);
-    document.getElementById('sess-badge').textContent = sess.clientName;
-    startPolling(sess.sessionId);
+    // Ekran startowy widoczny — czeka na startSession()
+    document.getElementById('start-input').focus();
   }
 
   OfflineQueue.init();
+});
+
+
+// ── EKRAN STARTOWY ───────────────────────────────────────────────────────────
+function startSession() {
+  const name = document.getElementById('start-input').value.trim() || 'Klient';
+  const sess = Session.create(name);
+  document.getElementById('sess-badge').textContent = sess.clientName;
+  document.getElementById('start-screen').style.display = 'none';
+  startPolling(sess.sessionId);
+}
+
+// Enter w polu startowym
+document.getElementById('start-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startSession();
 });
 
 // ── TRYBY NARZĘDZI ────────────────────────────────────────────────────────────
