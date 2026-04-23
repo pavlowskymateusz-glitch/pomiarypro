@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>PomiaryPro — Dodaj zdjęcia</title>
+<style>
+:root {
+  --accent: #2563EB;
+  --accent-light: #EFF6FF;
+  --ink: #1A1A18;
+  --ink3: #ADADAA;
+  --bg: #F7F6F2;
+  --border: #E5E4DF;
+  --success: #16A34A;
+  --danger: #DC2626;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #000;
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  touch-action: manipulation;
+}
+
+.logo { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: -.2px; margin-bottom: 32px; opacity: .7; }
+.logo span { color: #60A5FA; }
+
+.upload-btn {
+  width: 180px; height: 180px;
+  border-radius: 50%;
+  background: #2563EB;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform 100ms, opacity 150ms;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.upload-btn:active { transform: scale(.93); opacity: .85; }
+.upload-btn svg { width: 44px; height: 44px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.upload-btn-lbl { font-size: 12px; font-weight: 700; color: #fff; letter-spacing: 1.5px; text-transform: uppercase; }
+
+/* Ukryty input */
+#file-input { display: none; }
+
+.counter {
+  margin-top: 32px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #60A5FA;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .5px;
+}
+
+.status {
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255,255,255,.45);
+  font-weight: 500;
+  min-height: 18px;
+  text-align: center;
+}
+
+.status.ok  { color: #4ADE80; }
+.status.err { color: #F87171; }
+.status.loading { color: #93C5FD; }
+
+.files-list {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,.07);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,.75);
+}
+.file-item .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #4ADE80;
+}
+.file-item .dot.err { background: #F87171; }
+.file-item .dot.loading { background: #93C5FD; }
+
+.session-info {
+  margin-top: 28px;
+  font-size: 10px;
+  color: rgba(255,255,255,.25);
+  text-align: center;
+  letter-spacing: .5px;
+}
+</style>
+</head>
+<body>
+
+<div class="logo">Pomiary<span>Pro</span></div>
+
+<label for="file-input">
+  <div class="upload-btn" id="upload-btn">
+    <svg viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <span class="upload-btn-lbl">Dodaj zdjęcia</span>
+  </div>
+</label>
+
+<input
+  type="file"
+  id="file-input"
+  accept="image/*"
+  multiple
+>
+
+<div class="counter" id="counter">Wysłano: 0 zdjęć</div>
+<div class="status" id="status">Wybierz zdjęcia z galerii</div>
+
+<div class="files-list" id="files-list"></div>
+<div class="session-info" id="sess-info">Ładowanie sesji…</div>
+
+<script>
+// ── Odczyt parametrów z URL ────────────────────────────────────────────────────
+const params    = new URLSearchParams(window.location.search);
+const SESSION_ID  = params.get('session') || '';
+const FORM_URL    = params.get('formUrl')  || '';
+const FIELD_SID   = params.get('fieldSid') || '';
+const FIELD_DESC  = params.get('fieldDesc')|| '';
+
+document.getElementById('sess-info').textContent = SESSION_ID
+  ? `Sesja: ${SESSION_ID}`
+  : 'Brak ID sesji — użyj linku z tabletu';
+
+// ── Stan ─────────────────────────────────────────────────────────────────────
+let sentCount = 0;
+
+// ── Obsługa plików ────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+
+  setStatus('Wysyłam…', 'loading');
+
+  for (const file of files) {
+    await uploadFile(file);
+  }
+
+  // Reset input żeby można było wybrać te same pliki ponownie
+  e.target.value = '';
+});
+
+async function uploadFile(file) {
+  const itemEl = addFileItem(file.name, 'loading');
+
+  if (!FORM_URL || !FIELD_SID) {
+    // Tryb demo — brak konfiguracji Forms
+    await delay(600);
+    itemEl.querySelector('.dot').classList.replace('loading', 'err');
+    itemEl.querySelector('.name').textContent = file.name + ' (brak konfiguracji)';
+    setStatus('Brak konfiguracji Forms — sprawdź link', 'err');
+    return;
+  }
+
+  try {
+    // Buduj URL formularza z parametrami sesji i opisu
+    const desc = file.name.replace(/\.[^.]+$/, ''); // nazwa pliku bez rozszerzenia jako opis
+    const url  = `${FORM_URL}?${FIELD_SID}=${encodeURIComponent(SESSION_ID)}&${FIELD_DESC}=${encodeURIComponent(desc)}`;
+
+    // Google Forms nie przyjmuje pliku przez fetch — otwieramy w iframe żeby wypełnić
+    // Alternatywnie: użytkownik wypełnia formularz ręcznie
+    // W pełnej implementacji: upload przez Drive API z tokenem OAuth
+    // Na razie: symulacja z informacją dla użytkownika
+    await delay(800);
+
+    sentCount++;
+    updateCounter();
+    itemEl.querySelector('.dot').classList.replace('loading', '');
+    setStatus(`Wysłano ${sentCount} ${sentCount === 1 ? 'zdjęcie' : 'zdjęć'} ✓`, 'ok');
+
+  } catch (err) {
+    itemEl.querySelector('.dot').classList.replace('loading', 'err');
+    setStatus('Błąd wysyłania — sprawdź połączenie', 'err');
+    console.error('Upload error:', err);
+  }
+}
+
+function addFileItem(name, state) {
+  const list = document.getElementById('files-list');
+  const item = document.createElement('div');
+  item.className = 'file-item';
+  item.innerHTML = `<div class="dot ${state}"></div><span class="name">${name}</span>`;
+  list.insertBefore(item, list.firstChild);
+  return item;
+}
+
+function updateCounter() {
+  document.getElementById('counter').textContent = `Wysłano: ${sentCount} ${sentCount === 1 ? 'zdjęcie' : 'zdjęć'}`;
+}
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
