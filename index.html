@@ -1,83 +1,383 @@
-// ─── session.js ──────────────────────────────────────────────────────────────
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>PomiaryPro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#F7F6F2;--cvs:#FAFAF7;--ink:#1A1A18;--ink2:#6B6B66;--ink3:#ADADAA;
+  --ac:#2563EB;--al:#EFF6FF;--am:#BFDBFE;--red:#DC2626;
+  --br:#E5E4DF;--br2:#D0CFC9;--wh:#FFFFFF;--r:8px;--rl:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;background:var(--bg)}
+#app{display:flex;flex-direction:column;height:100vh}
 
-const Session = (() => {
+/* ── EKRAN STARTOWY ── */
+#ss{
+  position:fixed;inset:0;z-index:999;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+}
+.ss-box{
+  background:var(--wh);border-radius:16px;border:1px solid var(--br);
+  padding:44px 36px;width:380px;max-width:94vw;text-align:center;
+  box-shadow:0 8px 32px rgba(0,0,0,.10);
+}
+.ss-logo{font-size:32px;font-weight:700;color:var(--ink);margin-bottom:8px}
+.ss-logo b{color:var(--ac);font-weight:700}
+.ss-sub{font-size:13px;color:var(--ink3);margin-bottom:32px;line-height:1.5}
+.ss-inp{
+  width:100%;display:block;
+  border:2px solid var(--br);border-radius:var(--r);
+  padding:15px 16px;margin-bottom:16px;
+  font-family:'DM Sans',sans-serif;font-size:17px;font-weight:500;
+  color:var(--ink);background:var(--bg);outline:none;
+}
+.ss-inp:focus{border-color:var(--ac);background:var(--wh)}
+.ss-btn{
+  width:100%;height:56px;display:block;
+  background:var(--ac);color:var(--wh);border:none;border-radius:var(--r);
+  font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;
+  cursor:pointer;letter-spacing:.2px;
+}
 
-  let _sessionId = null;
-  let _clientName = '';
+/* ── TOPBAR ── */
+.tb-bar{display:flex;align-items:center;gap:0;background:var(--wh);border-bottom:1px solid var(--br);height:52px;padding:0 12px;flex-shrink:0;overflow-x:auto}
+.logo{font-size:15px;font-weight:700;color:var(--ink);margin-right:14px;white-space:nowrap;flex-shrink:0}
+.logo b{color:var(--ac)}
+.tg{display:flex;align-items:center;gap:2px;padding:0 8px;border-right:1px solid var(--br);flex-shrink:0}
+.tb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:46px;height:38px;border-radius:var(--r);border:1.5px solid transparent;background:transparent;cursor:pointer;transition:background 100ms;flex-shrink:0}
+.tb:active,.tb:hover{background:var(--bg)}
+.tb.on{background:var(--al);border-color:var(--am)}
+.tb svg{width:16px;height:16px;stroke:var(--ink2);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tb.on svg{stroke:var(--ac)}
+.tb.rd svg{stroke:var(--red)}
+.tl{font-size:7px;font-weight:600;color:var(--ink3);letter-spacing:.4px;text-transform:uppercase}
+.tb.on .tl{color:var(--ac)}
+.sp{flex:1}
+.badge{font-size:11px;font-weight:600;color:var(--ac);background:var(--al);border:1px solid var(--am);border-radius:20px;padding:4px 12px;white-space:nowrap;flex-shrink:0;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.exp-btn{margin-left:8px;height:34px;padding:0 14px;background:var(--ac);color:var(--wh);border:none;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
 
-  function _dateStr() {
-    return new Date().toISOString().slice(0, 10);
+/* ── MAIN ── */
+.main{display:flex;flex:1;overflow:hidden}
+.cwrap{flex:1;position:relative;overflow:hidden;background:var(--cvs)}
+#c{display:block;width:100%;height:100%;touch-action:none}
+.hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(26,26,24,.72);color:#fff;font-size:11px;padding:5px 16px;border-radius:20px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .3s}
+.hint.on{opacity:1}
+
+/* ── QR OVERLAY ── */
+.qrov{display:none;position:absolute;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:50}
+.qrov.open{display:flex}
+.qrbox{background:var(--wh);border-radius:var(--rl);padding:28px;text-align:center;width:300px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.qrbox h3{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.qrbox p{font-size:11px;color:var(--ink3);margin-bottom:16px}
+#qr-el{display:flex;align-items:center;justify-content:center;margin:0 auto 14px;min-height:200px}
+.qrcnt{font-size:28px;font-weight:700;color:var(--ac);font-family:'DM Mono',monospace}
+.qrcntl{font-size:10px;color:var(--ink3);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:18px}
+.qr-cls{width:100%;height:40px;background:var(--bg);border:1.5px solid var(--br2);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer}
+
+/* ── SIDE PANEL ── */
+.side{width:230px;flex-shrink:0;background:var(--wh);border-left:1px solid var(--br);display:flex;flex-direction:column;overflow-y:auto;padding:14px;gap:12px}
+.plbl{font-size:9px;font-weight:700;color:var(--ink3);letter-spacing:1.5px;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--br)}
+.nosel{text-align:center;padding:28px 0;color:var(--ink3);font-size:12px;line-height:1.7}
+.nosel svg{display:block;margin:0 auto 10px;width:28px;height:28px;stroke:var(--ink3);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.dr{display:flex;align-items:center;gap:8px}
+.dk{font-size:11px;font-weight:600;color:var(--ink2);width:34px;flex-shrink:0}
+.df{flex:1;display:flex;align-items:center;background:var(--bg);border:1.5px solid var(--br);border-radius:var(--r);padding:0 8px;height:36px;gap:4px}
+.df:focus-within{border-color:var(--ac);background:var(--wh)}
+.df input{flex:1;border:none;background:transparent;font-family:'DM Mono',monospace;font-size:14px;color:var(--ink);outline:none;min-width:0;text-align:right}
+.df input::placeholder{color:var(--ink3)}
+.du{font-size:10px;font-weight:600;color:var(--ink3);flex-shrink:0}
+.la{width:100%;border:1.5px solid var(--br);border-radius:var(--r);padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);background:var(--bg);outline:none;resize:none;min-height:58px}
+.la:focus{border-color:var(--ac);background:var(--wh)}
+.la::placeholder{color:var(--ink3)}
+.ab{width:100%;height:36px;background:var(--ac);color:var(--wh);border:none;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer}
+.db{width:100%;height:34px;background:transparent;color:var(--red);border:1.5px solid #FCA5A5;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-top:4px}
+
+/* ── BOTTOM ── */
+.bot{background:var(--wh);border-top:1px solid var(--br);display:flex;align-items:center;padding:0 12px;gap:8px;height:66px;flex-shrink:0}
+.qr-btn{width:50px;height:50px;border-radius:var(--rl);background:var(--bg);border:1.5px solid var(--br2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;flex-shrink:0}
+.qr-btn:active{border-color:var(--ac)}
+.qr-btn svg{width:18px;height:18px;stroke:var(--ac);fill:none;stroke-width:2}
+.qr-btn span{font-size:7px;font-weight:700;color:var(--ac);letter-spacing:.3px}
+.ptray{flex:1;display:flex;align-items:center;gap:6px;overflow-x:auto;padding:2px 0}
+.ptray::-webkit-scrollbar{height:2px}
+.ptray::-webkit-scrollbar-thumb{background:var(--am);border-radius:2px}
+.pchip{flex-shrink:0;background:var(--bg);border:1px solid var(--br2);border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;color:var(--ink2);white-space:nowrap;font-family:'DM Mono',monospace;cursor:pointer}
+.etray{font-size:11px;color:var(--ink3)}
+.snd{height:50px;padding:0 16px;background:var(--ac);color:var(--wh);border:none;border-radius:var(--rl);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- EKRAN STARTOWY -->
+<div id="ss">
+  <div class="ss-box">
+    <div class="ss-logo">Pomiary<b>Pro</b></div>
+    <div class="ss-sub">Wpisz nazwę klienta lub obiektu<br>i rozpocznij pomiar</div>
+    <input class="ss-inp" id="ss-inp" type="text"
+      placeholder="np. Kowalski – Biurowiec Alfa"
+      autocomplete="off" spellcheck="false" autocorrect="off">
+    <button class="ss-btn" id="ss-btn">Rozpocznij pomiar →</button>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="tb-bar">
+  <div class="logo">Pomiary<b>Pro</b></div>
+  <div class="tg">
+    <button class="tb on" id="tb-select" onclick="setMode('select')">
+      <svg viewBox="0 0 24 24"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+      <span class="tl">Wybór</span>
+    </button>
+  </div>
+  <div class="tg">
+    <button class="tb" id="tb-rect" onclick="setMode('rect')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+      <span class="tl">Prost.</span>
+    </button>
+    <button class="tb" id="tb-circle" onclick="setMode('circle')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
+      <span class="tl">Koło</span>
+    </button>
+    <button class="tb" id="tb-line" onclick="setMode('line')">
+      <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+      <span class="tl">Linia</span>
+    </button>
+  </div>
+  <div class="tg">
+    <button class="tb rd" onclick="Canvas.undo()">
+      <svg viewBox="0 0 24 24"><polyline points="9,14 4,9 9,4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+      <span class="tl" style="color:var(--red)">Cofnij</span>
+    </button>
+    <button class="tb rd" onclick="if(confirm('Wyczyścić płótno?')){Canvas.clearAll();updatePanel()}">
+      <svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+      <span class="tl" style="color:var(--red)">Czyść</span>
+    </button>
+  </div>
+  <div class="sp"></div>
+  <div class="badge" id="badge">—</div>
+  <button class="exp-btn" onclick="exportPDF()">Eksport PDF</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="cwrap" id="cwrap">
+    <canvas id="c"></canvas>
+    <div class="hint" id="hint"></div>
+
+    <!-- QR -->
+    <div class="qrov" id="qrov">
+      <div class="qrbox">
+        <h3>Zeskanuj telefonem</h3>
+        <p>Otwórz aparat i zeskanuj kod — przejdziesz do strony dodawania zdjęć</p>
+        <div id="qr-el"></div>
+        <div class="qrcnt" id="qr-cnt">0</div>
+        <div class="qrcntl">odebrano zdjęć</div>
+        <button class="qr-cls" onclick="closeQR()">Zamknij</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL -->
+  <div class="side">
+    <div id="p-empty">
+      <div class="nosel">
+        <svg viewBox="0 0 24 24"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+        Zaznacz element<br>aby edytować<br>wymiary i etykietę
+      </div>
+    </div>
+    <div id="p-edit" style="display:none;flex-direction:column;gap:12px">
+      <div>
+        <div class="plbl" style="margin-bottom:10px">Wymiary</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="dr"><span class="dk" id="lw">Szer.</span>
+            <div class="df"><input id="iw" type="number" min="1" placeholder="—" inputmode="decimal"><span class="du">mm</span></div>
+          </div>
+          <div class="dr" id="rh"><span class="dk">Wys.</span>
+            <div class="df"><input id="ih" type="number" min="1" placeholder="—" inputmode="decimal"><span class="du">mm</span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="plbl" style="margin-bottom:10px">Etykieta</div>
+        <textarea id="il" class="la" placeholder="np. witryna lewa…" rows="3"></textarea>
+      </div>
+      <button class="ab" onclick="applyEdits()">Zastosuj ↵</button>
+      <button class="db" onclick="Canvas.deleteSelected();updatePanel()">Usuń element</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM -->
+<div class="bot">
+  <button class="qr-btn" id="qr-btn">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="17" y="17" width="4" height="4" rx="1"/></svg>
+    <span>QR FOTO</span>
+  </button>
+  <div class="ptray" id="ptray">
+    <span class="etray">Brak zdjęć — zeskanuj QR telefonem</span>
+  </div>
+  <button class="snd" onclick="sendReport()">Wyślij raport</button>
+</div>
+
+</div><!-- #app -->
+
+<script src="config.js"></script>
+<script src="src/js/canvas.js"></script>
+<script src="src/js/session.js"></script>
+<script src="src/js/polling.js"></script>
+<script src="src/js/offlineQueue.js"></script>
+<script src="src/js/pdf.js"></script>
+<script>
+(function() {
+  var photos = [];
+  var qrOpen = false;
+  var appReady = false;
+
+  function initApp(clientName) {
+    if (appReady) return;
+    appReady = true;
+
+    // Schowaj ekran startowy
+    document.getElementById('ss').style.display = 'none';
+
+    // Inicjuj canvas
+    Canvas.init(document.getElementById('c'), function(shape) { updatePanel(shape); });
+
+    // Uruchom polling
+    Polling.start(Session.getSessionId(), function(newPhotos) {
+      newPhotos.forEach(function(p) {
+        photos.push(p);
+        addChip(p);
+      });
+      if (qrOpen) document.getElementById('qr-cnt').textContent = photos.length;
+      showHint('📸 Nowe zdjęcie: ' + (newPhotos[0].description || ''));
+    }, null);
+
+    OfflineQueue.init();
+
+    document.getElementById('badge').textContent = clientName;
   }
 
-  function _randomId(len) {
-    return Math.random().toString(36).slice(2, 2 + (len || 4)).toUpperCase();
+  // ── EKRAN STARTOWY ─────────────────────────────────────────────────────────
+  function startSession() {
+    var name = (document.getElementById('ss-inp').value || '').trim() || 'Klient';
+    var sess = Session.create(name);
+    initApp(sess.clientName);
   }
 
-  function create(clientName) {
-    _clientName = (clientName || 'Klient').trim();
-    var safe = _clientName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-]/g, '');
-    _sessionId = _dateStr() + '_' + safe + '_' + _randomId(4);
+  document.getElementById('ss-btn').addEventListener('click', startSession);
+  document.getElementById('ss-inp').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') startSession();
+  });
 
-    var data = { sessionId: _sessionId, clientName: _clientName, createdAt: new Date().toISOString() };
-
-    try { localStorage.setItem('pm_session', JSON.stringify(data)); } catch(e) {}
-
-    return data;
+  // Sprawdź czy jest zapisana sesja
+  var restored = Session.restore();
+  if (restored) {
+    initApp(restored.clientName);
   }
 
-  // Przywraca sesję TYLKO jeśli była utworzona dziś
-  function restore() {
-    try {
-      var raw = localStorage.getItem('pm_session');
-      if (!raw) return null;
-      var data = JSON.parse(raw);
-      // Sesja ważna tylko przez 12 godzin
-      var created = new Date(data.createdAt).getTime();
-      if (Date.now() - created > 12 * 60 * 60 * 1000) {
-        localStorage.removeItem('pm_session');
-        return null;
-      }
-      _sessionId = data.sessionId;
-      _clientName = data.clientName;
-      return data;
-    } catch(e) {
-      return null;
-    }
-  }
-
-  function clear() {
-    _sessionId = null;
-    _clientName = '';
-    try { localStorage.removeItem('pm_session'); } catch(e) {}
-  }
-
-  function getSessionId() { return _sessionId; }
-  function getClientName() { return _clientName; }
-
-  function buildFormUrl() {
-    if (!_sessionId) throw new Error('Brak sesji');
-    var params = CONFIG.FIELD_SESSION_ID + '=' + encodeURIComponent(_sessionId)
-               + '&' + CONFIG.FIELD_DESCRIPTION + '=' + encodeURIComponent('zdjecie');
-    return CONFIG.FORM_URL + '?' + params;
-  }
-
-  function renderQR(targetEl, size) {
-    var url = buildFormUrl();
-    targetEl.innerHTML = '';
-    if (typeof QRCode === 'undefined') {
-      targetEl.textContent = 'Brak biblioteki QRCode';
-      return;
-    }
-    new QRCode(targetEl, {
-      text: url,
-      width: size || 220,
-      height: size || 220,
-      colorDark: '#1A1A18',
-      colorLight: '#FFFFFF',
-      correctLevel: QRCode.CorrectLevel.M,
+  // ── TRYBY ──────────────────────────────────────────────────────────────────
+  window.setMode = function(m) {
+    Canvas.setMode(m);
+    ['select','rect','circle','line'].forEach(function(id) {
+      var el = document.getElementById('tb-'+id);
+      if (el) el.classList.toggle('on', id === m);
     });
-    return url;
+    var hints = {rect:'Przeciągnij aby narysować prostokąt',circle:'Przeciągnij aby narysować koło',line:'Przeciągnij aby narysować linię — snap do węzłów'};
+    if (hints[m]) showHint(hints[m]);
+  };
+
+  // ── HINT ───────────────────────────────────────────────────────────────────
+  function showHint(msg) {
+    var h = document.getElementById('hint');
+    h.textContent = msg; h.classList.add('on');
+    clearTimeout(h._t); h._t = setTimeout(function(){ h.classList.remove('on'); }, 2500);
+  }
+  window.showHint = showHint;
+
+  // ── PANEL ──────────────────────────────────────────────────────────────────
+  window.updatePanel = function(shape) {
+    shape = shape || Canvas.getSelected();
+    var pe = document.getElementById('p-empty');
+    var ed = document.getElementById('p-edit');
+    if (!shape) { pe.style.display='block'; ed.style.display='none'; return; }
+    pe.style.display = 'none'; ed.style.display = 'flex';
+    var rh = document.getElementById('rh');
+    document.getElementById('lw').textContent = shape.type==='circle'?'Śred.':shape.type==='line'?'Dług.':'Szer.';
+    rh.style.display = (shape.type==='circle'||shape.type==='line') ? 'none' : 'flex';
+    document.getElementById('iw').value = shape.dimW || '';
+    document.getElementById('ih').value = shape.dimH || '';
+    document.getElementById('il').value = shape.label || '';
+  };
+
+  window.applyEdits = function() {
+    var s = Canvas.getSelected(); if (!s) return;
+    Canvas.updateShape(s.id, {
+      dimW: parseFloat(document.getElementById('iw').value) || s.dimW,
+      dimH: parseFloat(document.getElementById('ih').value) || s.dimH,
+      label: document.getElementById('il').value.trim()
+    });
+    showHint('Zmiany zastosowane ✓');
+  };
+
+  // ── QR ─────────────────────────────────────────────────────────────────────
+  function openQR() {
+    if (!appReady) { showHint('Najpierw wpisz nazwę klienta'); return; }
+    qrOpen = true;
+    document.getElementById('qrov').classList.add('open');
+    var el = document.getElementById('qr-el');
+    el.innerHTML = '';
+    try { Session.renderQR(el, 200); } catch(e) { el.textContent = 'Błąd: ' + e.message; }
+    document.getElementById('qr-cnt').textContent = photos.length;
   }
 
-  return { create, restore, clear, getSessionId, getClientName, buildFormUrl, renderQR };
+  function closeQR() {
+    qrOpen = false;
+    document.getElementById('qrov').classList.remove('open');
+  }
+
+  // Podpnij przycisk QR przez addEventListener
+  document.getElementById('qr-btn').addEventListener('click', openQR);
+  window.closeQR = closeQR;
+
+  // ── PDF ────────────────────────────────────────────────────────────────────
+  window.exportPDF = function() {
+    if (!appReady) { alert('Najpierw rozpocznij sesję'); return; }
+    PDFGenerator.generate({
+      clientName: Session.getClientName(),
+      date: new Date().toLocaleDateString('pl-PL'),
+      sessionId: Session.getSessionId(),
+      canvasEl: Canvas.getCanvas(),
+      photos: photos,
+    });
+  };
+
+  window.sendReport = function() {
+    window.exportPDF();
+    showHint('Raport PDF pobrany ✓');
+  };
+
+  // ── FOTO CHIP ──────────────────────────────────────────────────────────────
+  function addChip(photo) {
+    var tray = document.getElementById('ptray');
+    var emp = tray.querySelector('.etray'); if (emp) emp.remove();
+    var chip = document.createElement('div');
+    chip.className = 'pchip';
+    chip.textContent = photo.description || photo.timestamp.slice(0,10);
+    chip.title = photo.driveUrl || '';
+    if (photo.driveUrl) chip.onclick = function(){ window.open(photo.driveUrl,'_blank'); };
+    tray.appendChild(chip);
+  }
+
 })();
+</script>
+</body>
+</html>

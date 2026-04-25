@@ -12,7 +12,7 @@ const Polling = (() => {
   async function _fetchRows() {
     const url =
       `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}` +
-      `/values/Sheet1!A:E` +
+      `/values/Form_Responses!A:E` +
       `?key=${CONFIG.SHEETS_API_KEY}`;
 
     const res = await fetch(url);

@@ -1,135 +1,138 @@
-// ─── pdf.js ──────────────────────────────────────────────────────────────────
-// Wymaga: jsPDF (CDN)
-// <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+// pdf.js — generowanie PDF z jsPDF
+// Szkic 1:1 — canvas skalowany proporcjonalnie do A4
 
 const PDFGenerator = (() => {
 
   function generate({ clientName, date, sessionId, canvasEl, photos }) {
-    if (typeof jspdf === 'undefined' && typeof jsPDF === 'undefined') {
-      console.error('Brak biblioteki jsPDF');
-      return;
-    }
+    var jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFLib) { alert('Brak biblioteki jsPDF'); return; }
 
-    const { jsPDF } = window.jspdf || window;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const PW = 210, ML = 20, MR = 20, TW = PW - ML - MR; // szerokość treści
+    var doc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    var PW = 210, ML = 15, MR = 15, TW = PW - ML - MR;
 
-    // ── Strona 1: Nagłówek ──────────────────────────────────────────────────
+    // ── Nagłówek ──────────────────────────────────────────────────────────────
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(26, 26, 24);
-    doc.text('PomiaryPro', ML, 22);
+    doc.text('PomiaryPro', ML, 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(107, 107, 102);
-    doc.text('Raport pomiaru', ML, 29);
+    doc.text('Raport pomiaru', ML, 27);
 
-    // Linia pod nagłówkiem
     doc.setDrawColor(229, 228, 223);
     doc.setLineWidth(0.4);
-    doc.line(ML, 33, PW - MR, 33);
+    doc.line(ML, 31, PW - MR, 31);
 
-    // Dane
     doc.setFontSize(11);
     doc.setTextColor(26, 26, 24);
-    const infoY = 42;
-    const col2  = 110;
+    var y = 39;
 
-    doc.setFont('helvetica', 'bold');   doc.text('Klient:', ML, infoY);
-    doc.setFont('helvetica', 'normal'); doc.text(clientName || '—', ML + 22, infoY);
+    doc.setFont('helvetica', 'bold');   doc.text('Klient:', ML, y);
+    doc.setFont('helvetica', 'normal'); doc.text(clientName || '—', ML + 20, y);
 
-    doc.setFont('helvetica', 'bold');   doc.text('Data:', col2, infoY);
-    doc.setFont('helvetica', 'normal'); doc.text(date || new Date().toLocaleDateString('pl-PL'), col2 + 15, infoY);
+    doc.setFont('helvetica', 'bold');   doc.text('Data:', 115, y);
+    doc.setFont('helvetica', 'normal'); doc.text(date || new Date().toLocaleDateString('pl-PL'), 130, y);
 
-    doc.setFont('helvetica', 'bold');   doc.text('Sesja:', ML, infoY + 7);
-    doc.setFont('helvetica', 'normal'); doc.text(sessionId || '—', ML + 22, infoY + 7);
+    doc.setFont('helvetica', 'bold');   doc.text('Sesja:', ML, y + 7);
+    doc.setFont('helvetica', 'normal'); doc.text(sessionId || '—', ML + 20, y + 7);
 
-    // ── Szkic ────────────────────────────────────────────────────────────────
-    if (canvasEl) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(107, 107, 102);
-      doc.text('SZKIC', ML, 62);
-      doc.line(ML, 64, PW - MR, 64);
+    // ── Szkic 1:1 ─────────────────────────────────────────────────────────────
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(107, 107, 102);
+    doc.text('SZKIC', ML, 58);
+    doc.setDrawColor(229, 228, 223);
+    doc.line(ML, 60, PW - MR, 60);
 
+    if (canvasEl && canvasEl.width > 0 && canvasEl.height > 0) {
       try {
-        const imgData = canvasEl.toDataURL('image/png');
-        // Skaluj do szerokości kolumny zachowując proporcje
-        const ratio    = canvasEl.width / canvasEl.height;
-        const imgW     = TW;
-        const imgH     = Math.min(imgW / ratio, 120);
-        doc.addImage(imgData, 'PNG', ML, 67, imgW, imgH);
-      } catch (e) {
+        // Zachowaj proporcje 1:1 — canvas -> mm bez rozciągania
+        var cw = canvasEl.width;
+        var ch = canvasEl.height;
+        var ratio = cw / ch;
+
+        // Maksymalna przestrzeń na szkic (do dołu strony zostaw 20mm)
+        var maxW = TW;
+        var maxH = 200; // mm — od y=63 do y=265
+
+        var imgW, imgH;
+        if (ratio >= maxW / maxH) {
+          // szeroki — ogranicz szerokość
+          imgW = maxW;
+          imgH = maxW / ratio;
+        } else {
+          // wysoki — ogranicz wysokość
+          imgH = maxH;
+          imgW = maxH * ratio;
+        }
+
+        var imgData = canvasEl.toDataURL('image/png');
+        // Wyśrodkuj poziomo
+        var imgX = ML + (TW - imgW) / 2;
+        doc.addImage(imgData, 'PNG', imgX, 63, imgW, imgH);
+      } catch(e) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(9);
         doc.setTextColor(150, 150, 150);
-        doc.text('(szkic niedostępny)', ML, 80);
+        doc.text('(szkic niedostępny: ' + e.message + ')', ML, 75);
       }
     }
 
-    // ── Strona 2: Zdjęcia ────────────────────────────────────────────────────
+    // ── Zdjęcia ───────────────────────────────────────────────────────────────
     if (photos && photos.length > 0) {
       doc.addPage();
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
       doc.setTextColor(26, 26, 24);
-      doc.text('Zdjęcia', ML, 22);
+      doc.text('Zdjęcia (' + photos.length + ')', ML, 20);
 
       doc.setDrawColor(229, 228, 223);
-      doc.line(ML, 25, PW - MR, 25);
+      doc.line(ML, 23, PW - MR, 23);
 
-      let y = 34;
+      var py = 32;
+      photos.forEach(function(photo, i) {
+        if (py > 265) { doc.addPage(); py = 20; }
 
-      photos.forEach((photo, i) => {
-        if (y > 265) { doc.addPage(); y = 20; }
-
-        // Numer i opis
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.setTextColor(26, 26, 24);
-        doc.text(`${i + 1}. ${photo.description || 'brak opisu'}`, ML, y);
+        doc.text((i + 1) + '. ' + (photo.description || 'brak opisu'), ML, py);
 
-        // Timestamp
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(107, 107, 102);
-        doc.text(photo.timestamp || '', ML, y + 5);
+        doc.text(photo.timestamp || '', ML, py + 5);
 
-        // Link do Drive
         if (photo.driveUrl) {
-          doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
           doc.setTextColor(37, 99, 235);
-          doc.textWithLink('Otwórz zdjęcie na Google Drive →', ML, y + 11, { url: photo.driveUrl });
+          doc.textWithLink('Otwórz zdjęcie na Google Drive \u2192', ML, py + 11, { url: photo.driveUrl });
         }
 
-        // Separator
         doc.setDrawColor(240, 240, 238);
         doc.setLineWidth(0.3);
-        doc.line(ML, y + 15, PW - MR, y + 15);
-
-        y += 22;
+        doc.line(ML, py + 15, PW - MR, py + 15);
+        py += 22;
       });
     }
 
-    // ── Stopka na każdej stronie ─────────────────────────────────────────────
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let p = 1; p <= pageCount; p++) {
+    // ── Stopka ────────────────────────────────────────────────────────────────
+    var pageCount = doc.internal.getNumberOfPages();
+    for (var p = 1; p <= pageCount; p++) {
       doc.setPage(p);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(173, 173, 170);
       doc.text(
-        `PomiaryPro — ${clientName} — strona ${p} z ${pageCount}`,
-        PW / 2, 291,
-        { align: 'center' }
+        'PomiaryPro \u2014 ' + (clientName || '') + ' \u2014 strona ' + p + ' z ' + pageCount,
+        PW / 2, 291, { align: 'center' }
       );
     }
 
-    // Zapisz
-    const fileName = `Raport_${(clientName || 'pomiar').replace(/\s+/g, '_')}_${date || 'brak_daty'}.pdf`;
+    var fileName = 'Raport_' + (clientName || 'pomiar').replace(/\s+/g, '_') + '_' + (date || '').replace(/\./g, '-') + '.pdf';
     doc.save(fileName);
   }
 
