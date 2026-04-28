@@ -263,24 +263,28 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-seri
 
 </div>
 
-<script src="config.js"></script>
-<script src="src/js/canvas.js"></script>
-<script src="src/js/session.js"></script>
-<script src="src/js/polling.js"></script>
-<script src="src/js/offlineQueue.js"></script>
-<script src="src/js/pdf.js"></script>
+<script src="config.js?v=9"></script>
+<script src="src/js/canvas.js?v=9"></script>
+<script src="src/js/session.js?v=9"></script>
+<script src="src/js/polling.js?v=9"></script>
+<script src="src/js/offlineQueue.js?v=9"></script>
+<script src="src/js/pdf.js?v=9"></script>
 <script>
 (function(){
   var photos = [];
   var qrOpen = false;
   var ready = false;
+  var canvasInited = false;
 
   function boot(clientName) {
     if (ready) return;
     ready = true;
     document.getElementById('ss').style.display = 'none';
     document.getElementById('badge').textContent = clientName;
-    Canvas.init(document.getElementById('c'), updatePanel);
+    if (!canvasInited) {
+      Canvas.init(document.getElementById('c'), updatePanel);
+      canvasInited = true;
+    }
     Polling.start(Session.getSessionId(), function(np) {
       np.forEach(function(p){ photos.push(p); addChip(p); });
       if (qrOpen) document.getElementById('qrcnt').textContent = photos.length;
@@ -290,12 +294,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-seri
   }
 
   function newSession() {
-    if (!confirm('Rozpocząć nową sesję dla nowego klienta?\nBieżący szkic zostanie wyczyszczony.')) return;
+    if (!confirm('Rozpoczac nowa sesje dla nowego klienta?\nBiezacy szkic zostanie wyczyszczony.')) return;
     Session.clear();
     Polling.reset();
     photos = [];
+    canvasInited = true; // canvas juz istnieje, nie inicjuj ponownie
     ready = false;
-    document.getElementById('ptray').innerHTML = '<span class="etray">Brak zdjęć — użyj przycisku QR w górnym pasku</span>';
+    document.getElementById('ptray').innerHTML = '<span class="etray">Brak zdiec — uzyj przycisku QR w gornym pasku</span>';
     Canvas.clearAll();
     updatePanel();
     document.getElementById('ss').style.display = 'flex';
