@@ -136,6 +136,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-seri
 <div id="ss">
   <div class="ssbox">
     <div class="sslogo">Pomiary<b>Pro</b></div>
+    <div style="font-size:10px;color:var(--ink3);margin-bottom:6px;margin-top:-2px">by Mateusz Pawlowski</div>
     <div class="sssub">Wpisz nazwę klienta i rozpocznij</div>
     <input class="ssinp" id="ssinp" type="text"
       placeholder="np. Kowalski – Biurowiec"
@@ -259,16 +260,17 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-seri
       <span class="etray">Brak zdjęć — użyj przycisku QR w górnym pasku</span>
     </div>
     <button class="sndbtn" onclick="sendReport()">Wyślij raport</button>
+    <button class="sndbtn" id="sharebtn" style="background:var(--bg);color:var(--ac);border:1.5px solid var(--am);" onclick="shareReport()">&#8679; Udostępnij</button>
   </div>
 
 </div>
 
-<script src="config.js?v=10"></script>
-<script src="src/js/canvas.js?v=10"></script>
-<script src="src/js/session.js?v=10"></script>
-<script src="src/js/polling.js?v=10"></script>
-<script src="src/js/offlineQueue.js?v=10"></script>
-<script src="src/js/pdf.js?v=10"></script>
+<script src="config.js?v=12"></script>
+<script src="src/js/canvas.js?v=12"></script>
+<script src="src/js/session.js?v=12"></script>
+<script src="src/js/polling.js?v=12"></script>
+<script src="src/js/offlineQueue.js?v=12"></script>
+<script src="src/js/pdf.js?v=12"></script>
 <script>
 (function(){
   var photos = [];
@@ -390,6 +392,77 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'DM Sans',sans-seri
   };
 
   window.sendReport = function() { exportPDF(); showHint('PDF pobrany ✓'); };
+
+  window.shareReport = function() {
+    if (!ready) return;
+    // Generuj PDF jako blob
+    var jsPDFLib = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFLib) { alert('Brak jsPDF'); return; }
+
+    // Sprawdź czy Web Share API obsługuje pliki
+    if (!navigator.share) {
+      showHint('Udostępnianie niedostępne w tej przeglądarce');
+      exportPDF(); // fallback — pobierz
+      return;
+    }
+
+    var doc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    // Generuj uproszczony PDF do udostępnienia
+    PDFGenerator.generate({
+      clientName: Session.getClientName(),
+      date: new Date().toLocaleDateString('pl-PL'),
+      sessionId: Session.getSessionId(),
+      canvasEl: Canvas.getCanvas(),
+      photos: photos
+    });
+
+    // Po wygenerowaniu spróbuj share
+    // jsPDF nie zwraca blob bezpośrednio — używamy output()
+    var pdfDoc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    // Rebuild jako blob
+    try {
+      var tmpDoc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      var clientName = Session.getClientName();
+      var date = new Date().toLocaleDateString('pl-PL');
+      tmpDoc.setFont('helvetica','bold');
+      tmpDoc.setFontSize(20);
+      tmpDoc.text('PomiaryPro', 15, 20);
+      tmpDoc.setFont('helvetica','normal');
+      tmpDoc.setFontSize(11);
+      tmpDoc.text('Klient: ' + clientName, 15, 35);
+      tmpDoc.text('Data: ' + date, 15, 42);
+      if (Canvas.getCanvas()) {
+        try {
+          var cw = Canvas.getCanvas().width, ch = Canvas.getCanvas().height;
+          var ratio = cw/ch, imgW = 180, imgH = imgW/ratio;
+          if (imgH > 120) { imgH = 120; imgW = imgH*ratio; }
+          tmpDoc.addImage(Canvas.getCanvas().toDataURL('image/png'), 'PNG', 15, 50, imgW, imgH);
+        } catch(e) {}
+      }
+      var pdfBlob = tmpDoc.output('blob');
+      var fileName = 'Raport_' + clientName.replace(/\s+/g,'_') + '_' + date.replace(/\./g,'-') + '.pdf';
+      var file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+          title: 'Raport PomiaryPro — ' + clientName,
+          text: 'Raport pomiaru z dnia ' + date,
+          files: [file]
+        }).then(function() {
+          showHint('Udostepniono ✓');
+        }).catch(function(e) {
+          if (e.name !== 'AbortError') showHint('Blad udostepniania');
+        });
+      } else {
+        // Przeglądarka nie obsługuje share z plikiem — pobierz
+        exportPDF();
+        showHint('Pobrano PDF — wyslij recznie');
+      }
+    } catch(e) {
+      exportPDF();
+      showHint('Pobrano PDF — wyslij recznie');
+    }
+  };
 
   function addChip(p) {
     var t = document.getElementById('ptray');
