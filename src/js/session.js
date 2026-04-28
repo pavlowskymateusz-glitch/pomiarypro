@@ -46,7 +46,9 @@ const Session = (() => {
     if (!_sessionId) throw new Error('Brak sesji');
     return CONFIG.FORM_URL
       + '?' + CONFIG.FIELD_SESSION_ID + '=' + encodeURIComponent(_sessionId)
-      + '&' + CONFIG.FIELD_DESCRIPTION + '=' + encodeURIComponent('zdjecie');
+      + '&' + CONFIG.FIELD_DESCRIPTION + '=' + encodeURIComponent(
+          _clientName + '_' + new Date().toISOString().slice(0,10)
+        );
   }
 
   function renderQR(targetEl, size) {
