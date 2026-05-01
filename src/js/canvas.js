@@ -237,19 +237,24 @@ const Canvas = (() => {
     let s = { id: _uid(), label: '', dimW: 0, dimH: 0 };
 
     if (_mode === 'rect') {
+      const rw = Math.abs(dx), rh = Math.abs(dy);
       s = { ...s, type: 'rect',
         x: Math.min(_drawStart.x, _drawCurrent.x),
         y: Math.min(_drawStart.y, _drawCurrent.y),
-        w: Math.abs(dx), h: Math.abs(dy) };
+        w: rw, h: rh,
+        dimW: Math.round(rw), dimH: Math.round(rh) };
     } else if (_mode === 'circle') {
-      s = { ...s, type: 'circle', cx: _drawStart.x, cy: _drawStart.y, r: Math.hypot(dx, dy) / 2 };
+      const r = Math.hypot(dx, dy) / 2;
+      s = { ...s, type: 'circle', cx: _drawStart.x, cy: _drawStart.y, r,
+        dimW: Math.round(r * 2) };
     } else if (_mode === 'line') {
       let x2 = _drawCurrent.x, y2 = _drawCurrent.y;
       const ang = Math.abs(Math.atan2(dy, dx));
       if (ang < 0.18)              y2 = _drawStart.y;
       else if (ang > Math.PI-0.18) y2 = _drawStart.y;
       else if (Math.abs(ang - Math.PI / 2) < 0.18) x2 = _drawStart.x;
-      s = { ...s, type: 'line', x1: _drawStart.x, y1: _drawStart.y, x2, y2 };
+      s = { ...s, type: 'line', x1: _drawStart.x, y1: _drawStart.y, x2, y2,
+        dimW: Math.round(Math.hypot(x2 - _drawStart.x, y2 - _drawStart.y)) };
     }
 
     _shapes.push(s);
